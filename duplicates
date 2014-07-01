@@ -20,6 +20,8 @@ scan_directory( @ARGV )
     if 'scan' eq $arg;
 list_all_duplicates( @ARGV )
     if 'list' eq $arg;
+list_matches( @ARGV )
+    if 'matches' eq $arg;
 exit;
 
 
@@ -32,12 +34,7 @@ sub scan_directory {
         say $file
             if $verbose;
 
-        my $handle = FileHandle->new( $file );
-        my $sha    = Digest::SHA1->new();
-        $sha->addfile( $handle );
-
-        my $digest = $sha->hexdigest;
-
+        my $digest = get_sha_of_file( $file );
         my $key    = sprintf '%s:%s', NAMESPACE, $digest;
         $redis->hset( $key, $file, 1 );
 
@@ -62,4 +59,32 @@ sub list_all_duplicates {
         }
         say '';
     }
+}
+sub list_matches {
+    my @list = @_;
+
+    foreach my $item ( @list ) {
+        say "${item}:";
+
+        my $digest  = get_sha_of_file( $item );
+        my $key     = sprintf '%s:%s', NAMESPACE, $digest;
+        my @matches = $redis->hkeys( $key );
+
+        foreach my $match ( @matches ) {
+            say "    $match"
+                unless $match eq $item;
+        }
+
+        say '';
+    }
+}
+
+sub get_sha_of_file {
+    my $file = shift;
+
+    my $handle = FileHandle->new( $file );
+    my $sha    = Digest::SHA1->new();
+    $sha->addfile( $handle );
+
+    return $sha->hexdigest;
 }
