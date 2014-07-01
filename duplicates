@@ -1,0 +1,38 @@
+#!/usr/bin/env perl
+
+use Modern::Perl '2012';
+use Digest::SHA1;
+use File::Next;
+use FileHandle;
+use Redis;
+
+use constant NAMESPACE => 'duplicates';
+
+my $redis = Redis->new();
+
+my $arg = shift;
+die unless defined $arg;
+
+scan_directory( @ARGV )
+    if 'scan' eq $arg;
+exit;
+
+
+
+sub scan_directory {
+    my $directory = shift;
+
+    my $files = File::Next::files( $directory );
+    while( my $file = $files->() ) {
+        say $file;
+
+        my $handle = FileHandle->new( $file );
+        my $sha    = Digest::SHA1->new();
+        $sha->addfile( $handle );
+
+        my $digest = $sha->hexdigest;
+
+        my $key    = sprintf '%s:%s', NAMESPACE, $digest;
+        $redis->hset( $key, $file, 1 );
+    }
+}
