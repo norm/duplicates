@@ -8,7 +8,9 @@ use Redis;
 
 use constant NAMESPACE => 'duplicates';
 
+$| = 1;
 my $redis = Redis->new();
+my $verbose = 0;
 
 my $arg = shift;
 die unless defined $arg;
@@ -24,7 +26,8 @@ sub scan_directory {
 
     my $files = File::Next::files( $directory );
     while( my $file = $files->() ) {
-        say $file;
+        say $file
+            if $verbose;
 
         my $handle = FileHandle->new( $file );
         my $sha    = Digest::SHA1->new();
@@ -34,5 +37,10 @@ sub scan_directory {
 
         my $key    = sprintf '%s:%s', NAMESPACE, $digest;
         $redis->hset( $key, $file, 1 );
+
+        print '.'
+            if not $verbose;
     }
+    say ''
+        if not $verbose;
 }
