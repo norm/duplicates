@@ -20,8 +20,10 @@ die unless defined $arg;
 
 scan_directory( @ARGV )
     if 'scan' eq $arg;
-list_all_duplicates( @ARGV )
+list_duplicates_in_directory( @ARGV )
     if 'list' eq $arg;
+list_all_duplicates( @ARGV )
+    if 'list-all' eq $arg;
 list_matches( @ARGV )
     if 'matches' eq $arg;
 delete_duplicates( @ARGV )
@@ -60,6 +62,26 @@ sub scan_directory {
 
         }
         say '';
+    }
+}
+sub list_duplicates_in_directory {
+    my @directories = @_;
+
+    foreach my $directory ( @directories ) {
+        $directory = abs_path( $directory );
+
+        my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 2 );
+        my $count = 0;
+
+        foreach my $dupe ( @duplicates ) {
+            $dupe =~ m{:(.*)};
+
+            my @keys = $redis->hkeys( $dupe );
+            foreach my $key ( @keys ) {
+                next unless $key =~ m{^$directory};
+                say $key;
+            }
+        }
     }
 }
 sub list_all_duplicates {
