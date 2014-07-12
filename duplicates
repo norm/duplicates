@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
-use Modern::Perl '2012';
+use Modern::Perl    '2012';
+use Cwd             qw( abs_path );
 use Digest::SHA1;
 use File::Next;
 use FileHandle;
@@ -35,6 +36,7 @@ sub scan_directory {
     my @directories = @_;
 
     foreach my $directory ( @directories ) {
+        $directory = abs_path( $directory );
         say $directory;
 
         my $count = 0;
