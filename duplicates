@@ -32,26 +32,33 @@ exit;
 
 
 sub scan_directory {
-    my $directory = shift;
+    my @directories = @_;
 
-    my $files = File::Next::files( $directory );
-    while( my $file = $files->() ) {
-        say $file
-            if $verbose;
+    foreach my $directory ( @directories ) {
+        say $directory;
 
-        try {
-            my $digest = get_sha_of_file( $file );
-            register_file( $file, $digest );
+        my $count = 0;
+        my $files = File::Next::files( $directory );
+        while( my $file = $files->() ) {
+            $count++;
+            if ( $verbose ) {
+                say "  [$count] $file";
+            }
+            else {
+                print '.';
+            }
+
+            try {
+                my $digest = get_sha_of_file( $file );
+                register_file( $file, $digest );
+            }
+            catch {
+                warn "$file: $!";
+            };
+
         }
-        catch {
-            warn "$file: $!";
-        };
-
-        print '.'
-            if not $verbose;
+        say '';
     }
-    say ''
-        if not $verbose;
 }
 sub list_all_duplicates {
     my @directories = $@;
