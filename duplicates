@@ -25,6 +25,8 @@ list_matches( @ARGV )
     if 'matches' eq $arg;
 delete_duplicates( @ARGV )
     if 'delete' eq $arg;
+rescan_duplicates()
+    if 'rescan' eq $arg;
 exit;
 
 
@@ -106,6 +108,24 @@ sub delete_duplicates {
                 say "Deleted $file"
                     if $verbose;
                 last;
+            }
+        }
+    }
+}
+sub rescan_duplicates {
+    my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 1 );
+
+    foreach my $duplicate ( @duplicates ) {
+        $duplicate =~ m{:(.*)};
+        my $orig_digest = $1;
+
+        foreach my $file ( $redis->hkeys( $duplicate ) ) {
+            my $digest = get_sha_of_file( $file ) // '';
+            if ( $orig_digest ne $digest ) {
+                say "Updating $file";
+                deregister_file( $file, $orig_digest );
+                register_file( $file, $digest )
+                    if $digest;
             }
         }
     }
