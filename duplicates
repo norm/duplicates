@@ -99,7 +99,7 @@ sub delete_duplicates {
         my $files = File::Next::files( $directory );
         while( my $file = $files->() ) {
             my $digest  = get_sha_of_file( $file );
-            my @matches = get_matching_files( $file );
+            my @matches = get_matching_files( $file, $digest );
             
             # only delete it if other duplicates exist
             next unless $#matches;
@@ -150,11 +150,10 @@ sub rescan_duplicates {
 }
 
 sub get_matching_files {
-    my $file = shift;
+    my $file   = shift;
+    my $digest = shift // get_sha_of_file( $file );
 
-    my $digest  = get_sha_of_file( $file );
-    my $key     = sprintf '%s:%s', NAMESPACE, $digest;
-
+    my $key = sprintf '%s:%s', NAMESPACE, $digest;
     return $redis->hkeys( $key );
 }
 sub get_sha_of_file {
