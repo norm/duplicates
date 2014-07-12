@@ -34,6 +34,8 @@ rescan_duplicates()
     if 'rescan' eq $arg;
 output_stats()
     if 'stats' eq $arg;
+wipe_data()
+    if 'wipe' eq $arg;
 exit;
 
 
@@ -204,6 +206,15 @@ sub output_stats {
     say sprintf "%d duplicated files, %s wasted space",
         $count, format_bytes($wasted)
             if $count;
+}
+sub wipe_data {
+    my $prefix = sprintf '%s:', NAMESPACE; 
+    my $length = length $prefix;
+
+    foreach my $key ( $redis->keys('*') ) {
+        $redis->del( $key )
+            if substr( $key, 0, $length ) eq $prefix;
+    }
 }
 
 sub get_matching_files {
