@@ -72,10 +72,7 @@ sub list_matches {
     foreach my $item ( @list ) {
         say "${item}:";
 
-        my $digest  = get_sha_of_file( $item );
-        my $key     = sprintf '%s:%s', NAMESPACE, $digest;
-        my @matches = $redis->hkeys( $key );
-
+        my @matches = get_matching_files( $item );
         foreach my $match ( @matches ) {
             say "    $match"
                 unless $match eq $item;
@@ -84,7 +81,14 @@ sub list_matches {
         say '';
     }
 }
+sub get_matching_files {
+    my $file = shift;
 
+    my $digest  = get_sha_of_file( $file );
+    my $key     = sprintf '%s:%s', NAMESPACE, $digest;
+
+    return $redis->hkeys( $key );
+}
 sub get_sha_of_file {
     my $file = shift;
 
