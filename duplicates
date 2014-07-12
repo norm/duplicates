@@ -84,6 +84,8 @@ sub list_matches {
 sub delete_duplicates {
     my @list = @_;
 
+    my $rescan_warning = 0;
+
     foreach my $directory ( @list ) {
         my $files = File::Next::files( $directory );
         while( my $file = $files->() ) {
@@ -98,8 +100,10 @@ sub delete_duplicates {
                 next if $match eq $file;
                 
                 my $match_digest = get_sha_of_file( $match );
-                next unless defined $match_digest
-                            and $match_digest eq $digest;
+                if ( !defined $match_digest or $match_digest ne $digest ) {
+                    $rescan_warning = $match;
+                    next;
+                }
 
                 unlink $file
                     or die "Couldn't delete $file: $!";
@@ -110,6 +114,11 @@ sub delete_duplicates {
                 last;
             }
         }
+    }
+
+    if ( $rescan_warning ) {
+        warn "$rescan_warning no longer a duplicate\n";
+        warn "Run 'duplicates rescan' and try again\n";
     }
 }
 sub rescan_duplicates {
