@@ -39,11 +39,7 @@ sub scan_directory {
 
         try {
             my $digest = get_sha_of_file( $file );
-            my $key    = sprintf '%s:%s', NAMESPACE, $digest;
-            $redis->hset( $key, $file, 1 );
-
-            my $count = $redis->hlen( $key );
-            $redis->zadd( SET_KEY, $count, $key );
+            register_file( $file, $digest );
         }
         catch {
             warn "$file: $!";
@@ -106,15 +102,9 @@ sub delete_duplicates {
                 unlink $file
                     or die "Couldn't delete $file: $!";
 
+                deregister_file( $file, $digest );
                 say "Deleted $file"
                     if $verbose;
-
-                my $key = sprintf '%s:%s', NAMESPACE, $digest;
-                $redis->hdel( $key, $file );
-
-                my $count = $redis->hlen( $key );
-                $redis->zadd( SET_KEY, $count, $key );
-
                 last;
             }
         }
@@ -139,4 +129,25 @@ sub get_sha_of_file {
     $sha->addfile( $handle );
 
     return $sha->hexdigest;
+}
+
+sub register_file {
+    my $file   = shift;
+    my $digest = shift;
+
+    my $key = sprintf '%s:%s', NAMESPACE, $digest;
+    $redis->hset( $key, $file, 1 );
+
+    my $count = $redis->hlen( $key );
+    $redis->zadd( SET_KEY, $count, $key );
+}
+sub deregister_file {
+    my $file   = shift;
+    my $digest = shift;
+
+    my $key = sprintf '%s:%s', NAMESPACE, $digest;
+    $redis->hdel( $key, $file );
+
+    my $count = $redis->hlen( $key );
+    $redis->zadd( SET_KEY, $count, $key );
 }
