@@ -23,6 +23,8 @@ list_all_duplicates( @ARGV )
     if 'list' eq $arg;
 list_matches( @ARGV )
     if 'matches' eq $arg;
+delete_duplicates( @ARGV )
+    if 'delete' eq $arg;
 exit;
 
 
@@ -81,6 +83,44 @@ sub list_matches {
         say '';
     }
 }
+sub delete_duplicates {
+    my @list = @_;
+
+    foreach my $directory ( @list ) {
+        my $files = File::Next::files( $directory );
+        while( my $file = $files->() ) {
+            my $digest  = get_sha_of_file( $file );
+            my @matches = get_matching_files( $file );
+            
+            # only delete it if other duplicates exist
+            next unless $#matches;
+
+            # double check those duplicates still exist
+            foreach my $match ( @matches ) {
+                next if $match eq $file;
+                
+                my $match_digest = get_sha_of_file( $match );
+                next unless defined $match_digest
+                            and $match_digest eq $digest;
+
+                unlink $file
+                    or die "Couldn't delete $file: $!";
+
+                say "Deleted $file"
+                    if $verbose;
+
+                my $key = sprintf '%s:%s', NAMESPACE, $digest;
+                $redis->hdel( $key, $file );
+
+                my $count = $redis->hlen( $key );
+                $redis->zadd( SET_KEY, $count, $key );
+
+                last;
+            }
+        }
+    }
+}
+
 sub get_matching_files {
     my $file = shift;
 
@@ -93,7 +133,9 @@ sub get_sha_of_file {
     my $file = shift;
 
     my $handle = FileHandle->new( $file );
-    my $sha    = Digest::SHA1->new();
+    return unless defined $handle;
+
+    my $sha = Digest::SHA1->new();
     $sha->addfile( $handle );
 
     return $sha->hexdigest;
