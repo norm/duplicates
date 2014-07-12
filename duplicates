@@ -37,6 +37,10 @@ exit;
 sub scan_directory {
     my @directories = @_;
 
+    # default to current directory
+    push @directories, '.'
+        if $#directories < 0;
+
     foreach my $directory ( @directories ) {
         $directory = abs_path( $directory );
         say $directory;
@@ -66,6 +70,10 @@ sub scan_directory {
 }
 sub list_duplicates_in_directory {
     my @directories = @_;
+
+    # default to current directory
+    push @directories, '.'
+        if $#directories < 0;
 
     foreach my $directory ( @directories ) {
         $directory = abs_path( $directory );
