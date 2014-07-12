@@ -57,14 +57,23 @@ sub list_all_duplicates {
     my @directories = $@;
 
     my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 2 );
+    my $count = 0;
+
     foreach my $dupe ( @duplicates ) {
         $dupe =~ m{:(.*)};
+
+        my @keys = $redis->hkeys( $dupe );
+        $count += $#keys;
+        
         say "${1}:";
-        foreach my $key ( $redis->hkeys( $dupe ) ) {
+        foreach my $key ( @keys ) {
             say "    $key";
         }
         say '';
     }
+
+    say "$count duplicated files"
+        if $count;
 }
 sub list_matches {
     my @list = @_;
