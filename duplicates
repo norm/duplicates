@@ -4,7 +4,9 @@ use Modern::Perl    '2012';
 use Cwd             qw( abs_path );
 use Digest::SHA1;
 use File::Next;
+use File::stat;
 use FileHandle;
+use Number::Bytes::Human    qw( format_bytes );
 use Redis;
 use Try::Tiny;
 
@@ -30,6 +32,8 @@ delete_duplicates( @ARGV )
     if 'delete' eq $arg;
 rescan_duplicates()
     if 'rescan' eq $arg;
+output_stats()
+    if 'stats' eq $arg;
 exit;
 
 
@@ -96,23 +100,15 @@ sub list_all_duplicates {
     my @directories = $@;
 
     my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 2 );
-    my $count = 0;
-
     foreach my $dupe ( @duplicates ) {
         $dupe =~ m{:(.*)};
 
-        my @keys = $redis->hkeys( $dupe );
-        $count += $#keys;
-        
         say "${1}:";
-        foreach my $key ( @keys ) {
+        foreach my $key ( $redis->hkeys( $dupe ) ) {
             say "    $key";
         }
         say '';
     }
-
-    say "$count duplicated files"
-        if $count;
 }
 sub list_matches {
     my @list = @_;
@@ -187,6 +183,28 @@ sub rescan_duplicates {
         }
     }
 }
+sub output_stats {
+    my @directories = $@;
+
+    my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 2 );
+
+    my $count  = 0;
+    my $wasted = 0;
+
+    foreach my $dupe ( @duplicates ) {
+        my %keys = $redis->hgetall( $dupe );
+
+        my( undef, $size ) = each %keys;
+        my $dupes = scalar( keys %keys ) - 1;
+
+        $wasted += ( $size * $dupes );
+        $count += $dupes;
+    }
+
+    say sprintf "%d duplicated files, %s wasted space",
+        $count, format_bytes($wasted)
+            if $count;
+}
 
 sub get_matching_files {
     my $file   = shift;
@@ -211,8 +229,10 @@ sub register_file {
     my $file   = shift;
     my $digest = shift;
 
+    my $stat = stat $file;
+
     my $key = sprintf '%s:%s', NAMESPACE, $digest;
-    $redis->hset( $key, $file, 1 );
+    $redis->hset( $key, $file, $stat->size );
 
     my $count = $redis->hlen( $key );
     $redis->zadd( SET_KEY, $count, $key );
