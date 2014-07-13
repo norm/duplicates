@@ -162,6 +162,8 @@ sub delete_duplicates {
                 last;
             }
         }
+        chdir $directory;
+        system 'find', '.', '-type', 'd', '-delete', '-empty';
     }
 
     if ( $rescan_warning ) {
