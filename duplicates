@@ -66,7 +66,8 @@ sub scan_directory {
                 say "  [$count] $file";
             }
             else {
-                print '.';
+                my $status = sprintf '  [%d] %s', $count, $file;
+                printf "%s\r", substr( $status, 0, 79 );
             }
 
             try {
