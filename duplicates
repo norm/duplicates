@@ -10,8 +10,9 @@ use Number::Bytes::Human    qw( format_bytes );
 use Redis;
 use Try::Tiny;
 
-use constant NAMESPACE => 'duplicates';
-use constant SET_KEY   => sprintf '%s:%s', NAMESPACE, 'all';
+use constant NAMESPACE  => 'duplicates';
+use constant SET_KEY    => sprintf '%s:%s', NAMESPACE, 'all';
+use constant TOP_WASTED => 10;
 
 $| = 1;
 my $redis = Redis->new();
@@ -240,6 +241,9 @@ sub output_stats {
     my $count  = 0;
     my $wasted = 0;
 
+    my $smallest = 0;
+    my %top_files;
+
     foreach my $dupe ( @duplicates ) {
         my %keys = $redis->hgetall( $dupe );
 
@@ -248,11 +252,35 @@ sub output_stats {
 
         $wasted += ( $size * $dupes );
         $count += $dupes;
+
+        if ( $verbose ) {
+            $top_files{$size} = []
+                if ! defined $top_files{$size};
+            push @{$top_files{$size}}, keys %keys;
+
+            if ( $size > $smallest and scalar keys %top_files > TOP_WASTED ) {
+                my @sizes = sort { $a <=> $b } keys %top_files;
+
+                delete $top_files{$sizes[0]};
+                my $smallest = $sizes[1];
+            }
+        }
     }
 
     say sprintf "%d duplicated files, %s wasted space",
         $count, format_bytes($wasted)
             if $count;
+
+    if ( $verbose ) {
+        say '';
+        for my $size ( sort { $b <=> $a } keys %top_files ) {
+            say format_bytes($size);
+            foreach my $file ( @{ $top_files{$size} } ) {
+                say "    $file";
+            }
+            say '';
+        }
+    }
 }
 sub wipe_data {
     my $prefix = sprintf '%s:', NAMESPACE; 
