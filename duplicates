@@ -32,6 +32,8 @@ delete_duplicates( @ARGV )
     if 'delete' eq $arg;
 rescan_duplicates()
     if 'rescan' eq $arg;
+rescan_duplicates_within_directory( @ARGV )
+    if 'rescan-dir' eq $arg;
 output_stats()
     if 'stats' eq $arg;
 wipe_data()
@@ -175,6 +177,37 @@ sub rescan_duplicates {
         my $orig_digest = $1;
 
         foreach my $file ( $redis->hkeys( $duplicate ) ) {
+            my $digest = get_sha_of_file( $file ) // '';
+            if ( $orig_digest ne $digest ) {
+                say "Updating $file";
+                deregister_file( $file, $orig_digest );
+                register_file( $file, $digest )
+                    if $digest;
+            }
+        }
+    }
+}
+sub rescan_duplicates_within_directory {
+    my @directories = @_;
+
+    # default to current directory
+    push @directories, '.'
+        if $#directories < 0;
+
+    my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 1 );
+
+    foreach my $duplicate ( @duplicates ) {
+        $duplicate =~ m{:(.*)};
+        my $orig_digest = $1;
+
+        foreach my $file ( $redis->hkeys( $duplicate ) ) {
+            my $within = 0;
+            foreach my $directory ( @directories ) {
+                $within = 1
+                    if $file =~ m{^$directory};
+            }
+            next unless $within;
+
             my $digest = get_sha_of_file( $file ) // '';
             if ( $orig_digest ne $digest ) {
                 say "Updating $file";
