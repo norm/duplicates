@@ -17,8 +17,7 @@ $| = 1;
 my $redis = Redis->new();
 my $verbose = 0;
 
-my $arg = shift;
-die unless defined $arg;
+my $arg = shift // 'stats';
 
 scan_directory( @ARGV )
     if 'scan' eq $arg;
