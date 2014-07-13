@@ -19,6 +19,11 @@ my $verbose = 0;
 
 my $arg = shift // 'stats';
 
+if ( '-v' eq $arg ) {
+    $verbose = 1;
+    $arg = shift // 'stats';
+}
+
 scan_directory( @ARGV )
     if 'scan' eq $arg;
 list_duplicates_in_directory( @ARGV )
@@ -106,26 +111,30 @@ sub list_all_duplicates {
     foreach my $dupe ( @duplicates ) {
         $dupe =~ m{:(.*)};
 
-        say "${1}:";
+        say "${1}:"
+            if $verbose;
         foreach my $key ( $redis->hkeys( $dupe ) ) {
-            say "    $key";
+            say( ( $verbose ? '    ' : '' ) . $key );
         }
-        say '';
+        say ''
+            if $verbose;
     }
 }
 sub list_matches {
     my @list = @_;
 
     foreach my $item ( @list ) {
-        say "${item}:";
+        say "${item}:"
+            if $verbose;
 
         my @matches = get_matching_files( $item );
         foreach my $match ( @matches ) {
-            say "    $match"
-                unless $match eq $item;
+            next unless $match ne $item;
+            say( ( $verbose ? '    ' : '' ) . $match );
         }
 
-        say '';
+        say ''
+            if $verbose;
     }
 }
 sub delete_duplicates {
@@ -180,7 +189,9 @@ sub rescan_duplicates {
         foreach my $file ( $redis->hkeys( $duplicate ) ) {
             my $digest = get_sha_of_file( $file ) // '';
             if ( $orig_digest ne $digest ) {
-                say "Updating $file";
+                say "Updating $file"
+                    if $verbose;
+
                 deregister_file( $file, $orig_digest );
                 register_file( $file, $digest )
                     if $digest;
@@ -211,7 +222,9 @@ sub rescan_duplicates_within_directory {
 
             my $digest = get_sha_of_file( $file ) // '';
             if ( $orig_digest ne $digest ) {
-                say "Updating $file";
+                say "Updating $file"
+                    if $verbose;
+
                 deregister_file( $file, $orig_digest );
                 register_file( $file, $digest )
                     if $digest;
