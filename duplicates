@@ -25,8 +25,6 @@ my %option;
 getopts('hv', \%option);
 pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
 
-wipe_data()
-    if 'wipe' eq $arg;
 
 if ( 'stats' eq $arg ) {
     output_stats();
@@ -51,6 +49,9 @@ elsif ( 'delete' eq $arg ) {
     die "Won't automatically delete files; at least one directory is required\n"
         if scalar @ARGV == 0;
     delete_duplicates( @ARGV );
+}
+elsif ( 'wipe' eq $arg ) {
+    wipe_data();
 }
 elsif ( 'rescan' eq $arg ) {
     @ARGV = ( '/' )
@@ -411,5 +412,9 @@ confirm they are still duplicates. Defaults to re-reading all registered files.
 
 Print some information about the duplicate files. Use C<-v> to list the top 
 10 duplicates (in terms of file size).
+
+=item duplicates wipe
+
+Removes all information stored in redis.
 
 =back
