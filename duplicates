@@ -7,6 +7,7 @@ use File::Next;
 use File::stat;
 use FileHandle;
 use Number::Bytes::Human    qw( format_bytes );
+use Pod::Usage;
 use Redis;
 use Try::Tiny;
 
@@ -19,6 +20,9 @@ my $redis = Redis->new();
 my $verbose = 0;
 
 my $arg = shift // 'stats';
+my %option;
+getopts('h', \%option);
+pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
 
 if ( '-v' eq $arg ) {
     $verbose = 1;
@@ -334,3 +338,10 @@ sub deregister_file {
     my $count = $redis->hlen( $key );
     $redis->zadd( SET_KEY, $count, $key );
 }
+
+__END__
+
+=head1 SYNOPSIS
+
+B<duplicates> - find and remove duplicate files
+
