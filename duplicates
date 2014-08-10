@@ -25,10 +25,6 @@ my %option;
 getopts('hv', \%option);
 pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
 
-rescan_duplicates()
-    if 'rescan' eq $arg;
-rescan_duplicates_within_directory( @ARGV )
-    if 'rescan-dir' eq $arg;
 wipe_data()
     if 'wipe' eq $arg;
 
@@ -55,6 +51,12 @@ elsif ( 'delete' eq $arg ) {
     die "Won't automatically delete files; at least one directory is required\n"
         if scalar @ARGV == 0;
     delete_duplicates( @ARGV );
+}
+elsif ( 'rescan' eq $arg ) {
+    @ARGV = ( '/' )
+        if $option{'a'};
+
+    rescan_duplicates( @ARGV );
 }
 else {
     die "Unknown arg: $arg\n";
@@ -207,50 +209,46 @@ sub delete_duplicates {
     }
 }
 sub rescan_duplicates {
-    my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 1 );
-
-    foreach my $duplicate ( @duplicates ) {
-        $duplicate =~ m{:(.*)};
-        my $orig_digest = $1;
-
-        foreach my $file ( $redis->hkeys( $duplicate ) ) {
-            my $digest = get_sha_of_file( $file ) // '';
-            if ( $orig_digest ne $digest ) {
-                say "Updating $file"
-                    if $option{'v'};
-
-                deregister_file( $file, $orig_digest );
-                register_file( $file, $digest )
-                    if $digest;
-            }
-        }
-    }
-}
-sub rescan_duplicates_within_directory {
     my @directories = @_;
 
     # default to current directory
     push @directories, '.'
         if $#directories < 0;
 
+    # canonicalise once
+    my @dirs;
+    foreach my $directory ( @directories ) {
+        push @dirs, abs_path( $directory );
+    }
+
     my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 1 );
+    my $total = scalar @duplicates;
+    my $count = 0;
 
     foreach my $duplicate ( @duplicates ) {
         $duplicate =~ m{:(.*)};
         my $orig_digest = $1;
 
+        $count++;
+
         foreach my $file ( $redis->hkeys( $duplicate ) ) {
             my $within = 0;
-            foreach my $directory ( @directories ) {
+            foreach my $directory ( @dirs ) {
                 $within = 1
                     if $file =~ m{^$directory};
             }
             next unless $within;
 
+            select undef, undef, undef, 0.01;
+
+            print status_line( "  [$count/$total] $file" )
+                if $option{'v'};
+
             my $digest = get_sha_of_file( $file ) // '';
             if ( $orig_digest ne $digest ) {
-                say "Updating $file"
+                print status_line( '' )
                     if $option{'v'};
+                say "Updated $file";
 
                 deregister_file( $file, $orig_digest );
                 register_file( $file, $digest )
@@ -258,6 +256,8 @@ sub rescan_duplicates_within_directory {
             }
         }
     }
+    print status_line( '' )
+        if $option{'v'};
 }
 sub output_stats {
     my @directories = $@;
@@ -401,6 +401,11 @@ group matches rather than just listing filenames.
 Deletes any files within <dir>s that have duplicates elsewhere. Will re-read
 the content of duplicate files before deleting to confirm they are still 
 duplicates.
+
+=item duplicates rescan [-v] [<dir> ...]
+
+Re-reads all registered duplicate files (optionally only within <dir>s) to
+confirm they are still duplicates. Defaults to re-reading all registered files.
 
 =item duplicates stats [-v]
 
