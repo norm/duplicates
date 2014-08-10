@@ -19,7 +19,8 @@ use constant TOP_WASTED => 10;
 $| = 1;
 my $redis = Redis->new();
 
-my $arg = shift // 'stats';
+my $arg = shift;
+
 my %option;
 getopts('hv', \%option);
 pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
@@ -38,10 +39,15 @@ rescan_duplicates()
     if 'rescan' eq $arg;
 rescan_duplicates_within_directory( @ARGV )
     if 'rescan-dir' eq $arg;
-output_stats()
-    if 'stats' eq $arg;
 wipe_data()
     if 'wipe' eq $arg;
+
+if ( 'stats' eq $arg ) {
+    output_stats();
+}
+else {
+    die "Unknown arg: $arg\n";
+}
 exit;
 
 
