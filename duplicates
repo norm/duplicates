@@ -346,3 +346,11 @@ __END__
 
 B<duplicates> - find and remove duplicate files
 
+=over
+
+=item duplicates stats [-v]
+
+Print some information about the duplicate files. Use C<-v> to list the top 
+10 duplicates (in terms of file size).
+
+=back
