@@ -6,6 +6,7 @@ use Digest::SHA1;
 use File::Next;
 use File::stat;
 use FileHandle;
+use Getopt::Std;
 use Number::Bytes::Human    qw( format_bytes );
 use Pod::Usage;
 use Redis;
@@ -17,17 +18,11 @@ use constant TOP_WASTED => 10;
 
 $| = 1;
 my $redis = Redis->new();
-my $verbose = 0;
 
 my $arg = shift // 'stats';
 my %option;
-getopts('h', \%option);
+getopts('hv', \%option);
 pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
-
-if ( '-v' eq $arg ) {
-    $verbose = 1;
-    $arg = shift // 'stats';
-}
 
 scan_directory( @ARGV )
     if 'scan' eq $arg;
@@ -66,7 +61,7 @@ sub scan_directory {
         my $files = File::Next::files( $directory );
         while( my $file = $files->() ) {
             $count++;
-            if ( $verbose ) {
+            if ( $option{'v'} ) {
                 say "  [$count] $file";
             }
             else {
@@ -118,12 +113,12 @@ sub list_all_duplicates {
         $dupe =~ m{:(.*)};
 
         say "${1}:"
-            if $verbose;
+            if $option{'v'};
         foreach my $key ( $redis->hkeys( $dupe ) ) {
-            say( ( $verbose ? '    ' : '' ) . $key );
+            say( ( $option{'v'} ? '    ' : '' ) . $key );
         }
         say ''
-            if $verbose;
+            if $option{'v'};
     }
 }
 sub list_matches {
@@ -131,16 +126,16 @@ sub list_matches {
 
     foreach my $item ( @list ) {
         say "${item}:"
-            if $verbose;
+            if $option{'v'};
 
         my @matches = get_matching_files( $item );
         foreach my $match ( @matches ) {
             next unless $match ne $item;
-            say( ( $verbose ? '    ' : '' ) . $match );
+            say( ( $option{'v'} ? '    ' : '' ) . $match );
         }
 
         say ''
-            if $verbose;
+            if $option{'v'};
     }
 }
 sub delete_duplicates {
@@ -172,7 +167,7 @@ sub delete_duplicates {
 
                 deregister_file( $file, $digest );
                 say "Deleted $file"
-                    if $verbose;
+                    if $option{'v'};
                 last;
             }
         }
@@ -196,7 +191,7 @@ sub rescan_duplicates {
             my $digest = get_sha_of_file( $file ) // '';
             if ( $orig_digest ne $digest ) {
                 say "Updating $file"
-                    if $verbose;
+                    if $option{'v'};
 
                 deregister_file( $file, $orig_digest );
                 register_file( $file, $digest )
@@ -229,7 +224,7 @@ sub rescan_duplicates_within_directory {
             my $digest = get_sha_of_file( $file ) // '';
             if ( $orig_digest ne $digest ) {
                 say "Updating $file"
-                    if $verbose;
+                    if $option{'v'};
 
                 deregister_file( $file, $orig_digest );
                 register_file( $file, $digest )
@@ -258,7 +253,7 @@ sub output_stats {
         $wasted += ( $size * $dupes );
         $count += $dupes;
 
-        if ( $verbose ) {
+        if ( $option{'v'} ) {
             $top_files{$size} = []
                 if ! defined $top_files{$size};
             push @{$top_files{$size}}, keys %keys;
@@ -276,7 +271,7 @@ sub output_stats {
         $count, format_bytes($wasted)
             if $count;
 
-    if ( $verbose ) {
+    if ( $option{'v'} ) {
         say '';
         for my $size ( sort { $b <=> $a } keys %top_files ) {
             say format_bytes($size);
