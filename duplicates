@@ -25,8 +25,6 @@ my %option;
 getopts('hv', \%option);
 pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
 
-delete_duplicates( @ARGV )
-    if 'delete' eq $arg;
 rescan_duplicates()
     if 'rescan' eq $arg;
 rescan_duplicates_within_directory( @ARGV )
@@ -52,6 +50,11 @@ elsif ( 'matches' eq $arg ) {
     die "Usage: duplicates matches <file> [...]\n"
         if scalar @ARGV == 0;
     list_matches( @ARGV );
+}
+elsif ( 'delete' eq $arg ) {
+    die "Won't automatically delete files; at least one directory is required\n"
+        if scalar @ARGV == 0;
+    delete_duplicates( @ARGV );
 }
 else {
     die "Unknown arg: $arg\n";
@@ -156,8 +159,14 @@ sub delete_duplicates {
     my $rescan_warning = 0;
 
     foreach my $directory ( @list ) {
+        $directory = abs_path( $directory );
+
         my $files = File::Next::files( $directory );
+
         while( my $file = $files->() ) {
+            print status_line( "  $file" )
+                if $option{'v'};
+
             my $digest  = get_sha_of_file( $file );
             my @matches = get_matching_files( $file, $digest );
             
@@ -178,14 +187,19 @@ sub delete_duplicates {
                     or die "Couldn't delete $file: $!";
 
                 deregister_file( $file, $digest );
-                say "Deleted $file"
+
+                print status_line( '' )
                     if $option{'v'};
+                say "Deleted $file";
                 last;
             }
         }
         chdir $directory;
         system 'find', '.', '-type', 'd', '-delete', '-empty';
     }
+
+    print status_line()
+        if $option{'v'};
 
     if ( $rescan_warning ) {
         warn "$rescan_warning no longer a duplicate\n";
@@ -381,6 +395,12 @@ matches rather than just listing filenames.
 
 Lists the duplicates of <file>s. Use C<-v> to verbosely list the SHA1 and
 group matches rather than just listing filenames.
+
+=item duplicates delete [-v] <dir> [...]
+
+Deletes any files within <dir>s that have duplicates elsewhere. Will re-read
+the content of duplicate files before deleting to confirm they are still 
+duplicates.
 
 =item duplicates stats [-v]
 
