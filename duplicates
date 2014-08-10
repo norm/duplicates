@@ -25,10 +25,6 @@ my %option;
 getopts('hv', \%option);
 pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
 
-list_duplicates_in_directory( @ARGV )
-    if 'list' eq $arg;
-list_all_duplicates( @ARGV )
-    if 'list-all' eq $arg;
 list_matches( @ARGV )
     if 'matches' eq $arg;
 delete_duplicates( @ARGV )
@@ -45,6 +41,14 @@ if ( 'stats' eq $arg ) {
 }
 elsif ( 'scan' eq $arg ) {
     scan_directory( @ARGV );
+}
+elsif ( 'list' eq $arg ) {
+    if ( $option{'a'} ) {
+        list_all_duplicates()
+    }
+    else {
+        list_duplicates_in_directory( @ARGV )
+    }
 }
 else {
     die "Unknown arg: $arg\n";
@@ -111,8 +115,6 @@ sub list_duplicates_in_directory {
     }
 }
 sub list_all_duplicates {
-    my @directories = $@;
-
     my @duplicates = $redis->zrevrangebyscore( SET_KEY, '+inf', 2 );
     foreach my $dupe ( @duplicates ) {
         $dupe =~ m{:(.*)};
@@ -130,6 +132,8 @@ sub list_matches {
     my @list = @_;
 
     foreach my $item ( @list ) {
+        $item = abs_path( $item );
+
         say "${item}:"
             if $option{'v'};
 
@@ -359,6 +363,16 @@ B<duplicates> - find and remove duplicate files
 =item duplicates scan [-v] [<dir> ...]
 
 Looks for duplicate files in <dir>s. Defaults to current directory.
+
+=item duplicates list [<dir> ...]
+
+Lists files in <dir>s that have duplicates elsewhere. Defaults to current
+directory. 
+
+=item duplicates list [-v] -a
+
+List all registered matches. Use C<-v> to verbosely list the SHA1 and group
+matches rather than just listing filenames.
 
 =item duplicates stats [-v]
 
