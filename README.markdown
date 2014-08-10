@@ -5,6 +5,18 @@ Yet another duplicated file finder. You probably don't want to use it, as
 it requires redis, various perl libraries, isn't documented, and isn't
 particularly featureful.
 
+Installation
+------------
+
+    # On a mac with homebrew:
+    brew install redis cpanminus
+
+    # On debian/ubuntu
+    sudo apt-get install -y redis cpanminus
+
+    # Either, install the perl modules.
+    sudo cpanm Modern::Perl Digest::SHA1 File::Next Number::Bytes::Human Redis Try::Tiny
+
 Usage
 -----
 
