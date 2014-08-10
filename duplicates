@@ -50,6 +50,9 @@ elsif ( 'delete' eq $arg ) {
         if scalar @ARGV == 0;
     delete_duplicates( @ARGV );
 }
+elsif ( 'delete-others' eq $arg ) {
+    delete_other_duplicates( @ARGV );
+}
 elsif ( 'wipe' eq $arg ) {
     wipe_data();
 }
@@ -199,6 +202,57 @@ sub delete_duplicates {
         }
         chdir $directory;
         system 'find', '.', '-type', 'd', '-delete', '-empty';
+    }
+
+    print status_line()
+        if $option{'v'};
+
+    if ( $rescan_warning ) {
+        warn "$rescan_warning no longer a duplicate\n";
+        warn "Run 'duplicates rescan' and try again\n";
+    }
+}
+sub delete_other_duplicates {
+    my @list = @_;
+
+    my $rescan_warning = 0;
+
+    die "Won't automatically delete files; at least one directory is required\n"
+        if scalar @list == 0;
+
+    foreach my $directory ( @list ) {
+        $directory = abs_path( $directory );
+
+        my $files = File::Next::files( $directory );
+
+        while( my $file = $files->() ) {
+            select undef, undef, undef, 0.1;
+            print status_line( "  $file" )
+                if $option{'v'};
+
+            my $digest  = get_sha_of_file( $file );
+            my @matches = get_matching_files( $file, $digest );
+            
+            foreach my $match ( @matches ) {
+                next if $match eq $file;
+
+                # only delete it if it is still a duplicate
+                my $match_digest = get_sha_of_file( $match );
+                if ( !defined $match_digest or $match_digest ne $digest ) {
+                    $rescan_warning = $match;
+                    next;
+                }
+
+                unlink $match
+                    or die "Couldn't delete $match: $!";
+
+                deregister_file( $match, $digest );
+
+                print status_line( '' )
+                    if $option{'v'};
+                say "Deleted $match";
+            }
+        }
     }
 
     print status_line()
@@ -400,6 +454,12 @@ group matches rather than just listing filenames.
 =item duplicates delete [-v] <dir> [...]
 
 Deletes any files within <dir>s that have duplicates elsewhere. Will re-read
+the content of duplicate files before deleting to confirm they are still 
+duplicates.
+
+=item duplicates delete-others [-v] <dir> [...]
+
+Deletes any files that are duplicates of those within <dir>s. Will re-read
 the content of duplicate files before deleting to confirm they are still 
 duplicates.
 
