@@ -25,8 +25,6 @@ my %option;
 getopts('hv', \%option);
 pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
 
-list_matches( @ARGV )
-    if 'matches' eq $arg;
 delete_duplicates( @ARGV )
     if 'delete' eq $arg;
 rescan_duplicates()
@@ -49,6 +47,11 @@ elsif ( 'list' eq $arg ) {
     else {
         list_duplicates_in_directory( @ARGV )
     }
+}
+elsif ( 'matches' eq $arg ) {
+    die "Usage: duplicates matches <file> [...]\n"
+        if scalar @ARGV == 0;
+    list_matches( @ARGV );
 }
 else {
     die "Unknown arg: $arg\n";
@@ -373,6 +376,11 @@ directory.
 
 List all registered matches. Use C<-v> to verbosely list the SHA1 and group
 matches rather than just listing filenames.
+
+=item duplicates matches [-v] <file> [...]
+
+Lists the duplicates of <file>s. Use C<-v> to verbosely list the SHA1 and
+group matches rather than just listing filenames.
 
 =item duplicates stats [-v]
 
