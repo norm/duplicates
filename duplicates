@@ -25,8 +25,6 @@ my %option;
 getopts('hv', \%option);
 pod2usage() if $option{'h'} or !defined $arg or $arg eq '-h';
 
-scan_directory( @ARGV )
-    if 'scan' eq $arg;
 list_duplicates_in_directory( @ARGV )
     if 'list' eq $arg;
 list_all_duplicates( @ARGV )
@@ -45,6 +43,9 @@ wipe_data()
 if ( 'stats' eq $arg ) {
     output_stats();
 }
+elsif ( 'scan' eq $arg ) {
+    scan_directory( @ARGV );
+}
 else {
     die "Unknown arg: $arg\n";
 }
@@ -61,19 +62,16 @@ sub scan_directory {
 
     foreach my $directory ( @directories ) {
         $directory = abs_path( $directory );
-        say $directory;
+        say $directory
+            if $option{'v'};
 
         my $count = 0;
         my $files = File::Next::files( $directory );
         while( my $file = $files->() ) {
             $count++;
-            if ( $option{'v'} ) {
-                say "  [$count] $file";
-            }
-            else {
-                my $status = sprintf '  [%d] %s', $count, $file;
-                printf "%s\r", substr( $status, 0, 79 );
-            }
+
+            print status_line( "  [$count] $file" )
+                if $option{'v'};
 
             try {
                 my $digest = get_sha_of_file( $file );
@@ -84,7 +82,8 @@ sub scan_directory {
             };
 
         }
-        say '';
+        print status_line()
+            if $option{'v'};
     }
 }
 sub list_duplicates_in_directory {
@@ -339,6 +338,15 @@ sub deregister_file {
     my $count = $redis->hlen( $key );
     $redis->zadd( SET_KEY, $count, $key );
 }
+sub status_line {
+    my $line = shift;
+
+    # pad out, then trim
+    $line .= ' ' x 79;
+    $line  = substr $line, 0, 79;
+
+    return "$line\r";
+}
 
 __END__
 
@@ -347,6 +355,10 @@ __END__
 B<duplicates> - find and remove duplicate files
 
 =over
+
+=item duplicates scan [-v] [<dir> ...]
+
+Looks for duplicate files in <dir>s. Defaults to current directory.
 
 =item duplicates stats [-v]
 
